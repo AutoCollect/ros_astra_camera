@@ -9,33 +9,32 @@
 /* the terms of the license.                                              */
 /*                                                                        */
 /**************************************************************************/
+
 #pragma once
 #include <ros/ros.h>
-#include <openni2/OpenNI.h>
+#include <message_filters/subscriber.h>
+#include <message_filters/sync_policies/approximate_time.h>
+#include <message_filters/synchronizer.h>
+#include <message_filters/time_synchronizer.h>
+
+#include "types.h"
+#include "utils.h"
 
 namespace astra_camera {
-
-using DeviceConnectedCb = std::function<void(const openni::DeviceInfo*)>;
-
-using DeviceDisconnectedCb = std::function<void(const openni::DeviceInfo*)>;
-
-class DeviceListener : public openni::OpenNI::DeviceConnectedListener,
-                       public openni::OpenNI::DeviceDisconnectedListener,
-                       public openni::OpenNI::DeviceStateChangedListener {
+class D2CViewer {
  public:
-  DeviceListener(DeviceConnectedCb connected_cb, DeviceDisconnectedCb disconnected_cb);
+  D2CViewer(ros::NodeHandle& nh, ros::NodeHandle& nh_private);
+  ~D2CViewer();
 
-  ~DeviceListener() override;
-
-  void onDeviceStateChanged(const openni::DeviceInfo* pInfo, openni::DeviceState state) override;
-
-  void onDeviceConnected(const openni::DeviceInfo* pInfo) override;
-
-  void onDeviceDisconnected(const openni::DeviceInfo* pInfo) override;
-
+  void messageCallback(const sensor_msgs::ImageConstPtr& rgb_msg,
+                       const sensor_msgs::ImageConstPtr& depth_msg);
  private:
-  DeviceConnectedCb connected_cb_;
-  DeviceDisconnectedCb disconnected_cb_;
+  ros::NodeHandle nh_;
+  ros::NodeHandle nh_private_;
+  message_filters::Subscriber<sensor_msgs::Image> rgb_sub_;
+  message_filters::Subscriber<sensor_msgs::Image> depth_sub_;
+  using MySyncPolicy = message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image>;
+  std::unique_ptr<message_filters::Synchronizer<MySyncPolicy>> sync_;
+  ros::Publisher d2c_pub_;
 };
-
 }  // namespace astra_camera

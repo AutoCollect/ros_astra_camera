@@ -34,13 +34,11 @@
 #include <thread>
 
 #include "constants.h"
-#include "d2c_filter.h"
-#include "ob_frame_listener.h"
+#include "d2c_viewer.h"
+#include "point_cloud_proc/point_cloud_proc.h"
 #include "types.h"
 #include "utils.h"
 #include "uvc_camera_driver.h"
-#include "point_cloud_proc/point_cloud_proc.h"
-
 
 namespace astra_camera {
 
@@ -49,11 +47,7 @@ using ReconfigureServer = dynamic_reconfigure::Server<AstraConfig>;
 class OBCameraNode {
  public:
   OBCameraNode(ros::NodeHandle& nh, ros::NodeHandle& nh_private,
-               std::shared_ptr<openni::Device> device);
-
-  OBCameraNode(ros::NodeHandle& nh, ros::NodeHandle& nh_private,
-               std::shared_ptr<openni::Device> device,
-               std::shared_ptr<UVCCameraDriver> uvc_camera_driver);
+               std::shared_ptr<openni::Device> device, bool use_uvc_camera = false);
 
   ~OBCameraNode();
 
@@ -65,6 +59,8 @@ class OBCameraNode {
   void setupCameraCtrlServices();
 
   void setupConfig();
+
+  void setupCameraInfoManager();
 
   void setupDevices();
 
@@ -85,6 +81,8 @@ class OBCameraNode {
   void getParameters();
 
   void setupTopics();
+
+  void setupUVCCamera();
 
   void imageSubscribedCallback(const stream_index_pair& stream_index);
 
@@ -144,8 +142,7 @@ class OBCameraNode {
   bool setLaserEnableCallback(std_srvs::SetBoolRequest& request,
                               std_srvs::SetBoolResponse& response);
 
-  bool setIRFloodCallback(std_srvs::SetBoolRequest& request,
-                  std_srvs::SetBoolResponse& response);
+  bool setIRFloodCallback(std_srvs::SetBoolRequest& request, std_srvs::SetBoolResponse& response);
 
   bool setLdpEnableCallback(std_srvs::SetBoolRequest& request, std_srvs::SetBoolResponse& response);
 
@@ -172,6 +169,8 @@ class OBCameraNode {
   bool getSupportedVideoModesCallback(GetStringRequest& request, GetStringResponse& response,
                                       const stream_index_pair& stream_index);
 
+  bool getLdpStatusCallback(GetBoolRequest& request, GetBoolResponse& response);
+
   bool toggleSensor(const stream_index_pair& stream_index, bool enabled, std::string& msg);
 
   void onNewFrameCallback(const openni::VideoFrameRef& frame,
@@ -187,7 +186,7 @@ class OBCameraNode {
 
   double getFocalLength(const stream_index_pair& stream_index, int y_resolution);
 
-  sensor_msgs::CameraInfo getIRCameraInfo();
+  sensor_msgs::CameraInfo getIRCameraInfo(int width, int height, double f);
 
   sensor_msgs::CameraInfo getDepthCameraInfo();
 
@@ -201,6 +200,8 @@ class OBCameraNode {
   void reconfigureCallback(const AstraConfig& config, uint32_t level);
 
   void sendKeepAlive(const ros::TimerEvent& event);
+
+  void pollFrame();
 
  private:
   ros::NodeHandle nh_;
@@ -231,7 +232,6 @@ class OBCameraNode {
   std::map<stream_index_pair, std::shared_ptr<openni::VideoStream>> streams_;
   std::map<stream_index_pair, openni::VideoMode> stream_video_mode_;
   std::map<stream_index_pair, std::vector<openni::VideoMode>> supported_video_modes_;
-  std::map<stream_index_pair, std::shared_ptr<OBFrameListener>> stream_frame_listener_;
   std::map<stream_index_pair, FrameCallbackFunction> stream_frame_callback_;
   std::map<stream_index_pair, int> unit_step_size_;
   std::map<stream_index_pair, ros::Publisher> image_publishers_;
@@ -262,6 +262,7 @@ class OBCameraNode {
   ros::ServiceServer reset_ir_gain_srv_;
   ros::ServiceServer reset_ir_exposure_srv_;
   ros::ServiceServer set_ir_flood_srv_;
+  ros::ServiceServer get_ldp_status_srv_;
 
   bool publish_tf_ = true;
   std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
@@ -284,10 +285,10 @@ class OBCameraNode {
   std::recursive_mutex device_lock_;
   int init_ir_gain_ = 0;
   uint32_t init_ir_exposure_ = 0;
-  bool enable_d2c_filter_ = false;
-  std::unique_ptr<D2CFilter> d2c_filter_ = nullptr;
-  std::unique_ptr<camera_info_manager::CameraInfoManager> color_camera_info_ = nullptr;
-  std::unique_ptr<camera_info_manager::CameraInfoManager> ir_camera_info_ = nullptr;
+  bool enable_d2c_viewer_ = false;
+  std::unique_ptr<D2CViewer> d2c_filter_ = nullptr;
+  std::unique_ptr<camera_info_manager::CameraInfoManager> color_info_manager_ = nullptr;
+  std::unique_ptr<camera_info_manager::CameraInfoManager> ir_info_manager_ = nullptr;
   std::string ir_info_uri_;
   std::string color_info_uri_;
   bool keep_alive_ = false;
@@ -298,5 +299,10 @@ class OBCameraNode {
   std::unique_ptr<PointCloudXyzrgbNode> point_cloud_xyzrgb_node_ = nullptr;
   bool enable_pointcloud_ = false;
   bool enable_pointcloud_xyzrgb_ = false;
+  std::unique_ptr<std::thread> poll_frame_thread_ = nullptr;
+  std::atomic_bool run_poll_frame_thread_{false};
+  std::mutex poll_frame_thread_lock_;
+  std::condition_variable poll_frame_thread_cv_;
+  bool enable_publish_extrinsic_ = false;
 };
 }  // namespace astra_camera

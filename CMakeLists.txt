@@ -208,6 +208,34 @@ target_link_libraries(AstraCameraInterfaceNodelet
   )
 
 
+add_library(ObCameraNodelet 
+    src/ob_camera_nodelet.cpp
+    src/ob_camera_node_factory.cpp
+)
+
+target_include_directories(ObCameraNodelet PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${catkin_INCLUDE_DIRS}
+  ${Boost_INCLUDE_DIRS}
+  ${LIBUVC_INCLUDE_DIRS}
+  ${OpenCV_INCLUDED_DIRS}
+  )
+
+
+target_link_libraries(ObCameraNodelet
+  -lOpenNI2
+  -L${ORBBEC_OPENNI2_REDIST}
+  ${PROJECT_NAME}
+  ${catkin_LIBRARIES}
+  ${CMAKE_THREAD_LIBS_INIT}
+  ${OpenCV_LIBS}
+  ${LIBUVC_LIBRARIES}
+  ${GLOG_LIBRARIES}
+  )
+
+
 
   add_library(D2cViewerNodelet 
   src/d2c_viewer_nodelet.cpp

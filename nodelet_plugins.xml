@@ -14,3 +14,12 @@
   </description>
   </class>
 </library>
+
+
+<library path="lib/libObCameraNodelet">
+<class name="astra_camera/ObCameraNodelet" type="astra_camera::ObCameraNodelet" base_class_type="nodelet::Nodelet">
+  <description>
+    AstraCameraInterfaceNodelet is a nodelet wrapper for the AstraCameraInterface class.
+  </description>
+  </class>
+</library>

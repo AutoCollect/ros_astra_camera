@@ -178,11 +178,12 @@ target_link_libraries(${PROJECT_NAME}_node
   ${GLOG_LIBRARIES}
   )
 
-add_executable(astra_stereo_u3_interface
+add_executable(astra_stereo_u3_interface_node
   src/astra_stereo_u3_interface.cpp
+  src/astra_stereo_u3_interface_node.cpp
 )
 
-target_include_directories(astra_stereo_u3_interface PUBLIC
+target_include_directories(astra_stereo_u3_interface_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
@@ -192,7 +193,7 @@ target_include_directories(astra_stereo_u3_interface PUBLIC
   ${OpenCV_INCLUDED_DIRS}
   )
 
-target_link_libraries(astra_stereo_u3_interface
+target_link_libraries(astra_stereo_u3_interface_node
   -lOpenNI2
   -L${ORBBEC_OPENNI2_REDIST}
   ${PROJECT_NAME}

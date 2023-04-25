@@ -178,6 +178,35 @@ target_link_libraries(${PROJECT_NAME}_node
   ${GLOG_LIBRARIES}
   )
 
+
+
+add_library(AstraCameraInterfaceNodelet 
+  src/astra_stereo_u3_interface_nodelet.cpp
+  src/astra_stereo_u3_interface.cpp
+)
+
+target_include_directories(AstraCameraInterfaceNodelet PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${catkin_INCLUDE_DIRS}
+  ${Boost_INCLUDE_DIRS}
+  ${LIBUVC_INCLUDE_DIRS}
+  ${OpenCV_INCLUDED_DIRS}
+  )
+
+
+target_link_libraries(AstraCameraInterfaceNodelet
+  -lOpenNI2
+  -L${ORBBEC_OPENNI2_REDIST}
+  ${PROJECT_NAME}
+  ${catkin_LIBRARIES}
+  ${CMAKE_THREAD_LIBS_INIT}
+  ${OpenCV_LIBS}
+  ${LIBUVC_LIBRARIES}
+  ${GLOG_LIBRARIES}
+  )
+
 add_executable(astra_stereo_u3_interface_node
   src/astra_stereo_u3_interface.cpp
   src/astra_stereo_u3_interface_node.cpp

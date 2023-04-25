@@ -10,14 +10,16 @@
  */
 
 #include "astra_camera/astra_stereo_u3_interface.hpp"
+#include "sensor_msgs/CameraInfo.h"
 
 
-OpenniRosInterface::OpenniRosInterface(std::string device_uri, ros::NodeHandle &nh, ros::NodeHandle &pnh):
+OpenniRosInterface::OpenniRosInterface(std::string device_uri, ros::NodeHandle &nh, ros::NodeHandle &pnh, std::string camera_name):
     is_openni_ready_(true),
     device_uri_(device_uri),
     nh_(nh),
     pnh_(pnh),
-    image_transport_(nh_)
+    image_transport_(nh_),
+    camera_name_(camera_name)
 {
     param_cb();
 
@@ -127,7 +129,7 @@ OpenniRosInterface::OpenniRosInterface(std::string device_uri, ros::NodeHandle &
 
 // constructor for the default device.
 OpenniRosInterface::OpenniRosInterface(ros::NodeHandle &nh, ros::NodeHandle &pnh):
-    OpenniRosInterface("", nh, pnh)
+    OpenniRosInterface("", nh, pnh, "astra")
 {
 
 }
@@ -141,6 +143,10 @@ OpenniRosInterface::~OpenniRosInterface()
 
 void OpenniRosInterface::onNewFrame(openni::VideoStream& stream)
 {
+    std_msgs::Header header;
+    header.stamp = ros::Time::now();
+    header.frame_id = camera_name_ + "_optical_frame";
+
     openni::VideoFrameRef frame;
     auto status = stream.readFrame(&frame);
     if (status != openni::STATUS_OK) {
@@ -189,9 +195,7 @@ void OpenniRosInterface::onNewFrame(openni::VideoStream& stream)
     }
     cv::flip(cv_image, cv_image, 1);
     // convert to ros image
-    std_msgs::Header header;
-    header.stamp = ros::Time::now();
-    header.frame_id = "optical_frame";
+
     sensor_msgs::ImagePtr ros_image = cv_bridge::CvImage(header, "mono16", cv_image).toImageMsg();
     // publish
     image_pub_.publish(ros_image);
@@ -222,12 +226,13 @@ void OpenniRosInterface::param_cb(void)
 
 
 
-UvcRosInterface::UvcRosInterface(ros::NodeHandle &nh, ros::NodeHandle &pnh, std::string serial_number):
+UvcRosInterface::UvcRosInterface(ros::NodeHandle &nh, ros::NodeHandle &pnh, std::string serial_number, std::string camera_name):
     is_ready_(true),
     serial_number_(serial_number),
     nh_(nh),
     pnh_(pnh),
-    image_transport_(nh_)
+    image_transport_(nh_),
+    camera_name_(camera_name)
 
 {
     param_cb();
@@ -239,6 +244,7 @@ UvcRosInterface::UvcRosInterface(ros::NodeHandle &nh, ros::NodeHandle &pnh, std:
         return;
     }
 
+    camera_info_manager_.reset(new camera_info_manager::CameraInfoManager(nh_, camera_name_));
     // if no serial number is provided, use the first device found.
     if (serial_number_.empty())
     {
@@ -281,6 +287,7 @@ UvcRosInterface::UvcRosInterface(ros::NodeHandle &nh, ros::NodeHandle &pnh, std:
 
     // set up image publisher
     image_pub_ = image_transport_.advertise("rgb", 10);
+    camera_info_pub_ = nh_.advertise<sensor_msgs::CameraInfo>("camera_info", 10);
 
     // register callback.
     res = uvc_start_streaming(devh_, 
@@ -310,19 +317,28 @@ UvcRosInterface::~UvcRosInterface()
 
 void UvcRosInterface::onNewFrame(uvc_frame_t *frame)
 {
+
+    auto now = ros::Time::now();
     // this appears to be the only format supported by astra stereo u3.
     if (frame->frame_format != UVC_FRAME_FORMAT_MJPEG) 
     {
         ROS_ERROR("Recived a frame with an invalid pixel format %d. Expected MJPEG.", frame->frame_format);
         return;
     }
+
+    sensor_msgs::CameraInfoPtr camera_info(new sensor_msgs::CameraInfo(camera_info_manager_->getCameraInfo()));
+    camera_info->header.frame_id = camera_name_ + "_optical_frame";
+    camera_info->header.stamp = now;
+
     std::vector<uchar> mjpeg_data((uchar*)frame->data, (uchar*) frame->data + frame->data_bytes);
     cv::Mat cv_frame = cv::imdecode(mjpeg_data, cv::IMREAD_COLOR);
     std_msgs::Header header;
-    header.stamp = ros::Time::now();
-    header.frame_id = "optical_frame";
+    header.stamp = camera_info->header.stamp;
+    header.frame_id = camera_info->header.frame_id;
     sensor_msgs::ImagePtr ros_image = cv_bridge::CvImage(header, "bgr8", cv_frame).toImageMsg();
+
     image_pub_.publish(ros_image);
+    camera_info_pub_.publish(camera_info);
 }
 
 bool UvcRosInterface::isReady()
@@ -346,6 +362,7 @@ void UvcRosInterface::param_cb()
     {
         // ROS_WARN("Failed to get fps parameter, using default value: %d", fps_);
     }
+
 }
 
 
@@ -357,7 +374,7 @@ AstraStereoU3Interface::AstraStereoU3Interface(ros::NodeHandle nh, ros::NodeHand
     param_cb();
 
     auto openni_if_pnh = ros::NodeHandle(pnh_.getNamespace() + "/openni");
-    openni_if_ = std::make_unique<OpenniRosInterface>(device_uri_, nh_, openni_if_pnh);
+    openni_if_ = std::make_unique<OpenniRosInterface>(device_uri_, nh_, openni_if_pnh, camera_name_);
     if (!openni_if_->isReady())
     {
         ROS_ERROR("Failed to initialize openni");
@@ -365,7 +382,7 @@ AstraStereoU3Interface::AstraStereoU3Interface(ros::NodeHandle nh, ros::NodeHand
     }
 
     auto uvc_if_pnh = ros::NodeHandle(pnh_.getNamespace() + "/uvc");
-    uvc_if_ = std::make_unique<UvcRosInterface>(nh_, uvc_if_pnh, openni_if_->getSerialNumber());
+    uvc_if_ = std::make_unique<UvcRosInterface>(nh_, uvc_if_pnh, openni_if_->getSerialNumber(), camera_name_);
     if (!uvc_if_->isReady())
     {
         ROS_ERROR("Failed to initialize uvc");
@@ -391,4 +408,11 @@ void AstraStereoU3Interface::param_cb(void)
     {
         ROS_WARN("Failed to get enable_openni parameter, using default value: %d", enable_openni_);
     }
+
+    if (!pnh_.param("camera_name", camera_name_, std::string("astra")))
+    {
+        ROS_WARN("Failed to get camera_name parameter, using default value: %s", camera_name_.c_str());
+    }
+
+    
 }

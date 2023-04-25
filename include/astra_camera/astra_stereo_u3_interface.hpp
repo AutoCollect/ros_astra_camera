@@ -21,6 +21,7 @@
 #include "opencv2/core/mat.hpp"
 #include "openni2/OniEnums.h"
 #include "ros/node_handle.h"
+#include "ros/publisher.h"
 #include <ros/ros.h>
 #include <camera_info_manager/camera_info_manager.h>
 #include <image_transport/image_transport.h>
@@ -39,7 +40,7 @@ class OpenniRosInterface: public openni::VideoStream::NewFrameListener
 
 public:
 
-    OpenniRosInterface(std::string device_uri, ros::NodeHandle &nh, ros::NodeHandle &pnh);
+    OpenniRosInterface(std::string device_uri, ros::NodeHandle &nh, ros::NodeHandle &pnh, std::string camera_name);
 
     // constructor for the default device.
     OpenniRosInterface(ros::NodeHandle &nh, ros::NodeHandle &pnh);
@@ -66,6 +67,7 @@ private:
     /* Settings */
     bool align_depth_;
     bool depth_color_sync_;
+    std::string camera_name_;
 
 };
 
@@ -78,7 +80,7 @@ class UvcRosInterface
 {
 
 public:
-    UvcRosInterface(ros::NodeHandle &nh, ros::NodeHandle &pnh, std::string serial_number);
+    UvcRosInterface(ros::NodeHandle &nh, ros::NodeHandle &pnh, std::string serial_number, std::string camera_name);
     ~UvcRosInterface();
     void onNewFrame(uvc_frame_t *frame);
     bool isReady();
@@ -97,11 +99,14 @@ private:
     ros::NodeHandle pnh_;
     image_transport::ImageTransport image_transport_;
     image_transport::Publisher image_pub_;
+    ros::Publisher camera_info_pub_;
+    std::unique_ptr<camera_info_manager::CameraInfoManager> camera_info_manager_;
 
     /*Settings*/
     int width_=640;
     int height_=480;
     int fps_=30;
+    std::string camera_name_;
 };
 
 
@@ -123,4 +128,5 @@ private:
     std::string device_uri_;
     bool enable_uvc_;
     bool enable_openni_;
+    std::string camera_name_;
 };

@@ -98,7 +98,7 @@ void OBCameraNodeFactory::startDevice(const std::shared_ptr<openni::Device>& dev
 }
 
 void OBCameraNodeFactory::onDeviceConnected(const openni::DeviceInfo* device_info) {
-  ROS_INFO_STREAM_THROTTLE(1, "Device connected: (name, " << device_info->getName() << ") (uri, "
+  ROS_INFO_STREAM("Device connected: (name, " << device_info->getName() << ") (uri, "
                                                           << device_info->getUri() << ") (vendor, "
                                                           << device_info->getVendor() << ")");
   if (device_info->getUri() == nullptr) {

@@ -6,7 +6,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -O3")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}  -fPIC -g")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -O3")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fPIC -g")
-set(CMAKE_BUILD_TYPE "Release")
+set(CMAKE_BUILD_TYPE "Debug")
 # if (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 #   add_compile_options(-Wall -Wextra -Wpedantic)
 # endif ()
@@ -155,6 +155,8 @@ add_executable(${PROJECT_NAME}_node
   src/main.cpp
   )
 
+
+
 target_include_directories(${PROJECT_NAME}_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -166,6 +168,31 @@ target_include_directories(${PROJECT_NAME}_node PUBLIC
   )
 
 target_link_libraries(${PROJECT_NAME}_node
+  -lOpenNI2
+  -L${ORBBEC_OPENNI2_REDIST}
+  ${PROJECT_NAME}
+  ${catkin_LIBRARIES}
+  ${CMAKE_THREAD_LIBS_INIT}
+  ${OpenCV_LIBS}
+  ${LIBUVC_LIBRARIES}
+  ${GLOG_LIBRARIES}
+  )
+
+add_executable(astra_stereo_u3_interface
+  src/astra_stereo_u3_interface.cpp
+)
+
+target_include_directories(astra_stereo_u3_interface PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${catkin_INCLUDE_DIRS}
+  ${Boost_INCLUDE_DIRS}
+  ${LIBUVC_INCLUDE_DIRS}
+  ${OpenCV_INCLUDED_DIRS}
+  )
+
+target_link_libraries(astra_stereo_u3_interface
   -lOpenNI2
   -L${ORBBEC_OPENNI2_REDIST}
   ${PROJECT_NAME}

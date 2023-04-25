@@ -1,3 +1,14 @@
+/**
+ * @file astra_stereo_u3_interface.cpp
+ * @author Hank Wu (hank880907@gmail.com)
+ * @brief A better camera interface.
+ * @version 0.1
+ * @date 2023-04-25
+ * 
+ * Copyright (c) METALFORM 2022
+ * 
+ */
+
 #include "astra_camera/astra_stereo_u3_interface.hpp"
 
 

@@ -6,7 +6,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -O3")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}  -fPIC -g")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -O3")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fPIC -g")
-set(CMAKE_BUILD_TYPE "Debug")
+# set(CMAKE_BUILD_TYPE "Debug")
 # if (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 #   add_compile_options(-Wall -Wextra -Wpedantic)
 # endif ()
@@ -197,6 +197,35 @@ target_include_directories(AstraCameraInterfaceNodelet PUBLIC
 
 
 target_link_libraries(AstraCameraInterfaceNodelet
+  -lOpenNI2
+  -L${ORBBEC_OPENNI2_REDIST}
+  ${PROJECT_NAME}
+  ${catkin_LIBRARIES}
+  ${CMAKE_THREAD_LIBS_INIT}
+  ${OpenCV_LIBS}
+  ${LIBUVC_LIBRARIES}
+  ${GLOG_LIBRARIES}
+  )
+
+
+
+  add_library(D2cViewerNodelet 
+  src/d2c_viewer_nodelet.cpp
+  src/d2c_viewer.cpp
+)
+
+target_include_directories(D2cViewerNodelet PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${catkin_INCLUDE_DIRS}
+  ${Boost_INCLUDE_DIRS}
+  ${LIBUVC_INCLUDE_DIRS}
+  ${OpenCV_INCLUDED_DIRS}
+  )
+
+
+target_link_libraries(D2cViewerNodelet
   -lOpenNI2
   -L${ORBBEC_OPENNI2_REDIST}
   ${PROJECT_NAME}

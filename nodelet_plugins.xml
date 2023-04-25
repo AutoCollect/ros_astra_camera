@@ -5,3 +5,12 @@
   </description>
   </class>
 </library>
+
+
+<library path="lib/libD2cViewerNodelet">
+<class name="astra_camera/D2cViewerNodelet" type="astra_camera::D2cViewerNodelet" base_class_type="nodelet::Nodelet">
+  <description>
+    AstraCameraInterfaceNodelet is a nodelet wrapper for the AstraCameraInterface class.
+  </description>
+  </class>
+</library>

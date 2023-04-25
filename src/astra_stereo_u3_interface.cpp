@@ -189,7 +189,10 @@ void OpenniRosInterface::onNewFrame(openni::VideoStream& stream)
     }
     cv::flip(cv_image, cv_image, 1);
     // convert to ros image
-    sensor_msgs::ImagePtr ros_image = cv_bridge::CvImage(std_msgs::Header(), "mono16", cv_image).toImageMsg();
+    std_msgs::Header header;
+    header.stamp = ros::Time::now();
+    header.frame_id = "optical_frame";
+    sensor_msgs::ImagePtr ros_image = cv_bridge::CvImage(header, "mono16", cv_image).toImageMsg();
     // publish
     image_pub_.publish(ros_image);
 }
@@ -315,7 +318,10 @@ void UvcRosInterface::onNewFrame(uvc_frame_t *frame)
     }
     std::vector<uchar> mjpeg_data((uchar*)frame->data, (uchar*) frame->data + frame->data_bytes);
     cv::Mat cv_frame = cv::imdecode(mjpeg_data, cv::IMREAD_COLOR);
-    sensor_msgs::ImagePtr ros_image = cv_bridge::CvImage(std_msgs::Header(), "bgr8", cv_frame).toImageMsg();
+    std_msgs::Header header;
+    header.stamp = ros::Time::now();
+    header.frame_id = "optical_frame";
+    sensor_msgs::ImagePtr ros_image = cv_bridge::CvImage(header, "bgr8", cv_frame).toImageMsg();
     image_pub_.publish(ros_image);
 }
 

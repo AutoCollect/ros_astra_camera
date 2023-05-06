@@ -199,6 +199,11 @@ void OpenniRosInterface::onNewFrame(openni::VideoStream& stream)
     sensor_msgs::ImagePtr ros_image = cv_bridge::CvImage(header, "mono16", cv_image).toImageMsg();
     // publish
     image_pub_.publish(ros_image);
+
+    for (auto &cb : new_frame_callbacks_)
+    {
+        cb();
+    }
 }
 
 bool OpenniRosInterface::isReady(void)
@@ -318,7 +323,7 @@ UvcRosInterface::~UvcRosInterface()
 void UvcRosInterface::onNewFrame(uvc_frame_t *frame)
 {
 
-    auto now = ros::Time::now();
+
     // this appears to be the only format supported by astra stereo u3.
     if (frame->frame_format != UVC_FRAME_FORMAT_MJPEG) 
     {
@@ -326,20 +331,29 @@ void UvcRosInterface::onNewFrame(uvc_frame_t *frame)
         return;
     }
 
+    
+
+
+    std::vector<uchar> mjpeg_data((uchar*)frame->data, (uchar*) frame->data + frame->data_bytes);
+    cv_frame_ = cv::imdecode(mjpeg_data, cv::IMREAD_COLOR);
+
+}
+
+
+void UvcRosInterface::publish(void)
+{
+    auto now = ros::Time::now();
     sensor_msgs::CameraInfoPtr camera_info(new sensor_msgs::CameraInfo(camera_info_manager_->getCameraInfo()));
     camera_info->header.frame_id = camera_name_ + "_optical_frame";
     camera_info->header.stamp = now;
-
-    std::vector<uchar> mjpeg_data((uchar*)frame->data, (uchar*) frame->data + frame->data_bytes);
-    cv::Mat cv_frame = cv::imdecode(mjpeg_data, cv::IMREAD_COLOR);
     std_msgs::Header header;
     header.stamp = camera_info->header.stamp;
     header.frame_id = camera_info->header.frame_id;
-    sensor_msgs::ImagePtr ros_image = cv_bridge::CvImage(header, "bgr8", cv_frame).toImageMsg();
-
+    sensor_msgs::ImagePtr ros_image = cv_bridge::CvImage(header, "bgr8", cv_frame_).toImageMsg();
     image_pub_.publish(ros_image);
     camera_info_pub_.publish(camera_info);
 }
+
 
 bool UvcRosInterface::isReady()
 {
@@ -389,6 +403,7 @@ AstraStereoU3Interface::AstraStereoU3Interface(ros::NodeHandle nh, ros::NodeHand
         return;
     }
 
+    openni_if_->registerNewFrameCallback(boost::bind(&UvcRosInterface::publish, uvc_if_.get()));
 }
 
 void AstraStereoU3Interface::param_cb(void)

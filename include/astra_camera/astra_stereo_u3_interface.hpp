@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <iostream>
 #include <openni2/OpenNI.h>
 #include <memory>
@@ -45,6 +46,11 @@ public:
     // constructor for the default device.
     OpenniRosInterface(ros::NodeHandle &nh, ros::NodeHandle &pnh);
     ~OpenniRosInterface();
+    void registerNewFrameCallback(std::function<void(void)> callback)
+    {
+        new_frame_callbacks_.push_back(callback);
+    }
+
     void onNewFrame(openni::VideoStream& stream) override;
     bool isReady(void);
     std::string getSerialNumber(void);
@@ -58,6 +64,7 @@ private:
     std::string serial_number_;
     openni::VideoStream depth_stream_;
     std::unique_ptr<camera_info_manager::CameraInfoManager> camera_info_manager_;
+    std::vector<std::function<void(void)>> new_frame_callbacks_;
 
     ros::NodeHandle nh_;
     ros::NodeHandle pnh_;
@@ -83,6 +90,7 @@ public:
     UvcRosInterface(ros::NodeHandle &nh, ros::NodeHandle &pnh, std::string serial_number, std::string camera_name);
     ~UvcRosInterface();
     void onNewFrame(uvc_frame_t *frame);
+    void publish(void);
     bool isReady();
     void param_cb();
 
@@ -101,6 +109,8 @@ private:
     image_transport::Publisher image_pub_;
     ros::Publisher camera_info_pub_;
     std::unique_ptr<camera_info_manager::CameraInfoManager> camera_info_manager_;
+     sensor_msgs::ImagePtr ros_image_;
+     cv::Mat cv_frame_; 
 
     /*Settings*/
     int width_=640;

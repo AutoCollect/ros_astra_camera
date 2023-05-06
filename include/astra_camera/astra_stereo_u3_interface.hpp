@@ -109,8 +109,7 @@ private:
     image_transport::Publisher image_pub_;
     ros::Publisher camera_info_pub_;
     std::unique_ptr<camera_info_manager::CameraInfoManager> camera_info_manager_;
-     sensor_msgs::ImagePtr ros_image_;
-     cv::Mat cv_frame_; 
+    cv::Mat cv_frame_; 
 
     /*Settings*/
     int width_=640;

@@ -59,7 +59,6 @@ public:
 
 private:
     bool is_openni_ready_;
-    std::string device_uri_;
     openni::Device device_;
     std::string serial_number_;
     openni::VideoStream depth_stream_;
@@ -134,7 +133,7 @@ private:
     ros::NodeHandle pnh_;
     
     /*Setting*/
-    std::string device_uri_;
+    std::string serial_number_;
     bool enable_uvc_;
     bool enable_openni_;
     std::string camera_name_;

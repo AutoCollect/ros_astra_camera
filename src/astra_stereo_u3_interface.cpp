@@ -13,11 +13,11 @@
 #include "sensor_msgs/CameraInfo.h"
 
 
-OpenniRosInterface::OpenniRosInterface(std::string device_uri, ros::NodeHandle &nh, ros::NodeHandle &pnh, std::string camera_name):
+OpenniRosInterface::OpenniRosInterface(std::string serial_number, ros::NodeHandle &nh, ros::NodeHandle &pnh, std::string camera_name):
     is_openni_ready_(true),
-    device_uri_(device_uri),
     nh_(nh),
     pnh_(pnh),
+    serial_number_(serial_number),
     image_transport_(nh_),
     camera_name_(camera_name)
 {
@@ -31,49 +31,65 @@ OpenniRosInterface::OpenniRosInterface(std::string device_uri, ros::NodeHandle &
         return;
     }
     
-    // if no device uri is given, use the first available device
-    if (device_uri_.empty())
+    openni::Array<openni::DeviceInfo> devices;
+    openni::OpenNI::enumerateDevices(&devices);
+
+    if (devices.getSize() == 0) 
     {
-        ROS_WARN("No device uri given, using the first available device");
-        openni::Array<openni::DeviceInfo> devices;
-        openni::OpenNI::enumerateDevices(&devices);
-
-        if (devices.getSize() == 0) 
-        {
-            ROS_ERROR("No device connected");
-            is_openni_ready_ = false;
-            return;
-        }
-
-        std::cout << "Found " << devices.getSize() << " devices:" << std::endl;
-        for (int i = 0; i < devices.getSize(); ++i) 
-        {
-            std::cout << " uri: " << devices[i].getUri() << std::endl;
-            std::cout << " name: " << devices[i].getName() << std::endl;
-            std::cout << " vendor " << devices[i].getVendor() << std::endl;
-            std::cout << " product id: " << devices[i].getUsbProductId() << std::endl;
-            std::cout << " vendor id: " << devices[i].getUsbVendorId() << std::endl;
-        }
-
-        device_uri_ = std::string(devices[0].getUri());
-        ROS_INFO("Using device uri: %s", device_uri_.c_str());
+        ROS_ERROR("No device connected");
+        is_openni_ready_ = false;
+        return;
     }
 
+    std::map<std::string, std::string> device_map; // map from serial number to uri
+
+    std::cout << "Found " << devices.getSize() << " devices:" << std::endl;
+    for (int i = 0; i < devices.getSize(); ++i) 
+    {
+        std::cout << " uri: " << devices[i].getUri() << std::endl;
+        std::cout << " name: " << devices[i].getName() << std::endl;
+        std::cout << " vendor " << devices[i].getVendor() << std::endl;
+        std::cout << " product id: " << devices[i].getUsbProductId() << std::endl;
+        std::cout << " vendor id: " << devices[i].getUsbVendorId() << std::endl;
+        openni::Device device;
+        status = device.open(devices[i].getUri());
+        if (status == openni::STATUS_OK) 
+        {
+            char serial_number_char[64];
+            int data_size = sizeof(serial_number_char);
+            device.getProperty(openni::OBEXTENSION_ID_SERIALNUMBER, serial_number_char, &data_size);
+            auto serial_number = std::string(serial_number_char);
+            device_map[serial_number] = devices[i].getUri(); 
+        }
+        device.close();
+    }
+
+    if (serial_number_ == "")
+    {
+        serial_number_ = device_map.begin()->first;
+        ROS_INFO("No serial number specified. Using the first device with serial number: %s", serial_number_.c_str());
+    }
+
+    if (device_map.find(serial_number_) == device_map.end())
+    {
+        ROS_ERROR("Cannot find device with serial number: %s", serial_number_.c_str());
+        is_openni_ready_ = false;
+        return;
+    }
+
+    std::string device_uri = device_map[serial_number_];
+    
+    ROS_INFO("Using device uri: %s", device_uri.c_str());
+
+
     // try to open the uri
-    status = device_.open(device_uri_.c_str());
+    status = device_.open(device_uri.c_str());
     if (status != openni::STATUS_OK) 
     {
         ROS_ERROR("Failed to open device: %s", openni::OpenNI::getExtendedError());
         is_openni_ready_ = false;
         return;
     }
-
-    // get the serial number.
-    char serial_number[64];
-    int data_size = sizeof(serial_number);
-    device_.getProperty(openni::OBEXTENSION_ID_SERIALNUMBER, serial_number, &data_size);
-    serial_number_ = std::string(serial_number);
-    ROS_INFO("serial number: %s", serial_number_.c_str());
 
     // disable mirror. (does not seem to have effect.)
     depth_stream_.setMirroringEnabled(false);
@@ -388,7 +404,7 @@ AstraStereoU3Interface::AstraStereoU3Interface(ros::NodeHandle nh, ros::NodeHand
     param_cb();
 
     auto openni_if_pnh = ros::NodeHandle(pnh_.getNamespace() + "/openni");
-    openni_if_ = std::make_unique<OpenniRosInterface>(device_uri_, nh_, openni_if_pnh, camera_name_);
+    openni_if_ = std::make_unique<OpenniRosInterface>(serial_number_, nh_, openni_if_pnh, camera_name_);
     if (!openni_if_->isReady())
     {
         ROS_ERROR("Failed to initialize openni");
@@ -408,12 +424,12 @@ AstraStereoU3Interface::AstraStereoU3Interface(ros::NodeHandle nh, ros::NodeHand
 
 void AstraStereoU3Interface::param_cb(void)
 {
-    if (!pnh_.param<std::string>("device_uri", device_uri_, ""))
+    if (!pnh_.param<std::string>("serial_number", serial_number_, ""))
     {
-        ROS_WARN("URI is not specified. Using the first device found.");
+        ROS_WARN("serial_number is not specified. Using the first device found.");
     }
     else {
-        ROS_INFO("Using device with URI: %s", device_uri_.c_str());
+        ROS_INFO("Using device with URI: %s", serial_number_.c_str());
     }
     if (!pnh_.param<bool>("enable_uvc", enable_uvc_, true))
     {
